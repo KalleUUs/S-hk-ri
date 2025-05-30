@@ -12,15 +12,34 @@
       width: 100vw;
       height: 100vh;
       overflow: hidden;
-      touch-action: none;
       background-color: #111827;
-      font-family: 'Arial', sans-serif;
+      font-family: Arial, sans-serif;
     }
-    canvas {
-      touch-action: none;
-      cursor: pointer;
-      display: block;
+    /* iPhone-like frame container */
+    #canvasContainer {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #000;
+    }
+    #canvasFrame {
+      width: 414px;
+      height: 896px;
+      max-width: 100%;
+      max-height: 100%;
+      border: 16px solid #333;
+      border-radius: 50px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.7);
+      position: relative;
+      overflow: hidden;
       background-color: #111827;
+    }
+    #canvasFrame canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 30px;
     }
     #shockOverlay {
       position: absolute;
@@ -31,7 +50,6 @@
       background: radial-gradient(circle, rgba(255,255,255,0.9), rgba(255,255,255,0) 70%);
       animation: shock 0.3s ease-out;
       display: none;
-      z-index: 50;
       pointer-events: none;
     }
     @keyframes shock {
@@ -43,12 +61,13 @@
       top: 0.5rem;
       left: 50%;
       transform: translateX(-50%);
-      text-align: center;
-      z-index: 10;
       background: rgba(0, 0, 0, 0.6);
+      color: #fff;
       padding: 0.5rem 1rem;
       border-radius: 0.5rem;
       box-shadow: 0 0 10px rgba(255,255,255,0.2);
+      z-index: 10;
+      text-align: center;
     }
     #restart {
       position: absolute;
@@ -61,26 +80,73 @@
       font-size: 1.25rem;
       font-weight: bold;
       background-color: #e11d48;
-      color: white;
+      color: #fff;
       border: none;
       border-radius: 0.5rem;
       box-shadow: 0 0 15px rgba(0,0,0,0.3);
+      cursor: pointer;
     }
     #restart:hover {
       background-color: #be123c;
     }
+    /* Start overlay */
+    #startOverlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      z-index: 200;
+    }
+    #startOverlay h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    #startOverlay p {
+      color: #ccc;
+      text-align: center;
+      margin-bottom: 2rem;
+      max-width: 90%;
+    }
+    #startOverlay button {
+      background-color: #10b981;
+      color: #fff;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 0.5rem;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      cursor: pointer;
+    }
+    #startOverlay button:hover {
+      background-color: #059669;
+    }
   </style>
 </head>
 <body>
-  <div id="shockOverlay"></div>
-  <div id="canvasContainer" style="width:100vw;height:100vh;display:flex;justify-content:center;align-items:center;">
-    <canvas id="gameCanvas" style="max-width:414px;max-height:896px;width:100%;height:100%;background-color:#111827;"></canvas>
+  <div id="startOverlay">
+    <h1>Sähkömiehen erikoispeli</h1>
+    <p>Yhdistä samanväriset johdot vetämällä ne yhteen. Jos paria ei ole, yhdistä johto maahan. Väärä yhdistys aiheuttaa sähköiskun!</p>
+    <button onclick="hideStartOverlay()">Aloita peli</button>
   </div>
-  <div id="ui-panel" class="text-white text-sm">
-    <p class="mb-1">Pisteet: <span id="score">0</span> | Max: <span id="maxScore">0</span></p>
-    <p class="mb-2">Aikaa jäljellä: <span id="timer">30</span>s</p>
+
+  <div id="canvasContainer">
+    <div id="canvasFrame">
+      <div id="shockOverlay"></div>
+      <canvas id="gameCanvas"></canvas>
+      <div id="ui-panel">
+        <p>Pisteet: <span id="score">0</span> | Max: <span id="maxScore">0</span></p>
+        <p>Aikaa jäljellä: <span id="timer">30</span>s</p>
+      </div>
+      <button id="restart">Aloita uusi peli</button>
+    </div>
   </div>
-  <button id="restart">Aloita uusi peli</button>
+
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -89,6 +155,7 @@
     const timerEl = document.getElementById('timer');
     const restartBtn = document.getElementById('restart');
     const shockOverlay = document.getElementById('shockOverlay');
+    const startOverlay = document.getElementById('startOverlay');
 
     const colors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'cyan', 'lime'];
     let score = 0;
@@ -99,8 +166,12 @@
     let dragging = false;
     let startPoint = null;
     let currentPoint = null;
-
     const wireRadius = 20;
+
+    function hideStartOverlay() {
+      startOverlay.style.display = 'none';
+      startGame();
+    }
 
     function updateScore(add) {
       score += add;
@@ -140,8 +211,8 @@
       ctx.textAlign = 'center';
       ctx.fillText('MAA', canvas.width / 2, canvas.height - 34);
 
-      wiresLeft.forEach(w => {
-        drawWire(w.x, w.y, w.color);
+      wiresLeft.forEach(wire => {
+        drawWire(wire.x, wire.y, wire.color);
       });
 
       if (dragging && startPoint && currentPoint) {
@@ -159,6 +230,7 @@
       const leftColors = shuffle(colors).slice(0, 3);
       const rightColors = shuffle(colors).slice(0, 3);
       const spacing = canvas.height / 4;
+
       leftColors.forEach((c, i) => {
         wiresLeft.push({ x: 50, y: spacing * (i + 1), color: c });
       });
@@ -168,17 +240,12 @@
     }
 
     function getWireAt(x, y) {
-      return wiresLeft.find(w => Math.hypot(w.x - x, w.y - y) < wireRadius);
-    }
-
-    function getRandomColorNotIn(excludeList) {
-      const available = colors.filter(c => !excludeList.includes(c));
-      return available[Math.floor(Math.random() * available.length)] || colors[Math.floor(Math.random() * colors.length)];
+      return wiresLeft.find(wire => Math.hypot(wire.x - x, wire.y - y) < wireRadius);
     }
 
     function startGame() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
       timeLeft = 30;
       score = 0;
       scoreEl.textContent = score;
@@ -203,24 +270,22 @@
     function handleDrag(start, end) {
       const startWire = getWireAt(start.x, start.y);
       const endWire = getWireAt(end.x, end.y);
-
       if (!startWire) return;
-
       if (endWire) {
-        if (startWire === endWire) return;
-        if (startWire.color === endWire.color) {
-          updateScore(10);
-          generateWires();
-        } else {
-          triggerShockEffect();
+        if (startWire !== endWire) {
+          if (startWire.color === endWire.color) {
+            updateScore(10);
+            generateWires();
+          } else {
+            triggerShockEffect();
+          }
         }
-      } else if (Math.hypot(end.x - canvas.width / 2, end.y - canvas.height + 30) < 30) {
+      } else if (Math.hypot(end.x - canvas.width / 2, end.y - canvas.height + 40) < 30) {
         if (!hasMatchingPair()) {
           updateScore(10);
           triggerShockEffect();
         }
       }
-
       drawWires();
     }
 
@@ -252,79 +317,23 @@
       return array;
     }
 
-    function getCanvasCoordinates(e) {
+    function getCanvasCoordinates(event) {
       const rect = canvas.getBoundingClientRect();
       return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
+        x: (event.clientX || event.touches[0].clientX) - rect.left,
+        y: (event.clientY || event.touches[0].clientY) - rect.top
       };
     }
 
-    canvas.addEventListener('touchstart', e => {
-      const touch = e.touches[0];
-      startPoint = getCanvasCoordinates(touch);
-      currentPoint = startPoint;
-      dragging = true;
-    });
-
-    canvas.addEventListener('touchmove', e => {
-      if (!dragging) return;
-      const touch = e.touches[0];
-      currentPoint = getCanvasCoordinates(touch);
-      drawWires();
-    });
-
-    canvas.addEventListener('touchend', e => {
-      if (!dragging) return;
-      const touch = e.changedTouches[0];
-      const endPoint = getCanvasCoordinates(touch);
-      handleDrag(startPoint, endPoint);
-      dragging = false;
-      startPoint = null;
-      currentPoint = null;
-    });
-
-    canvas.addEventListener('mousedown', e => {
-      startPoint = getCanvasCoordinates(e);
-      currentPoint = startPoint;
-      dragging = true;
-    });
-
-    canvas.addEventListener('mousemove', e => {
-      if (!dragging) return;
-      currentPoint = getCanvasCoordinates(e);
-      drawWires();
-    });
-
-    canvas.addEventListener('mouseup', e => {
-      if (!dragging) return;
-      const endPoint = getCanvasCoordinates(e);
-      handleDrag(startPoint, endPoint);
-      dragging = false;
-      startPoint = null;
-      currentPoint = null;
-    });
-
+    // Event listeners
+    canvas.addEventListener('touchstart', e => { dragging = true; const p = getCanvasCoordinates(e); startPoint = p; currentPoint = p; });
+    canvas.addEventListener('touchmove', e => { if (!dragging) return; currentPoint = getCanvasCoordinates(e); drawWires(); });
+    canvas.addEventListener('touchend', e => { if (!dragging) return; const p = getCanvasCoordinates(e); handleDrag(startPoint, p); dragging = false; });
+    canvas.addEventListener('mousedown', e => { dragging = true; const p = getCanvasCoordinates(e); startPoint = p; currentPoint = p; });
+    canvas.addEventListener('mousemove', e => { if (!dragging) return; currentPoint = getCanvasCoordinates(e); drawWires(); });
+    canvas.addEventListener('mouseup', e => { if (!dragging) return; const p = getCanvasCoordinates(e); handleDrag(startPoint, p); dragging = false; });
     restartBtn.addEventListener('click', startGame);
-
-    window.addEventListener('resize', () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      drawWires();
-    });
-
-    startGame();
-  </script>
-  <div id="startOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:#111827cc;z-index:1000;display:flex;flex-direction:column;justify-content:center;align-items:center;">
-    <h1 style="color:white;font-size:2rem;margin-bottom:1rem;text-align:center;">Sähkömiehen erikoispeli</h1>
-    <p style="color:#ccc;text-align:center;margin-bottom:2rem;max-width:90%;">Yhdistä samanväriset johdot vetämällä ne yhteen. Jos paria ei ole, yhdistä johto maahan. Väärä yhdistys aiheuttaa sähköiskun!</p>
-    <button onclick="hideStartOverlay()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded text-lg shadow">Aloita peli</button>
-  </div>
-
-  <script>
-    function hideStartOverlay() {
-      document.getElementById('startOverlay').style.display = 'none';
-    }
+    window.addEventListener('resize', () => { startGame(); });
   </script>
 </body>
 </html>
