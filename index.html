@@ -5,213 +5,157 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Sähkömiehen erikoispeli</title>
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-      touch-action: none;
-      background-color: #111827;
-      font-family: Arial, sans-serif;
-    }
-    /* iPhone-like frame container */
-    #canvasContainer {
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #000;
-    }
-    #canvasFrame {
-      width: 414px;
-      height: 896px;
-      max-width: 100%;
-      max-height: 100%;
-      border: 16px solid #333;
-      border-radius: 50px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.7);
-      position: relative;
-      overflow: hidden;
-      background-color: #111827;
-    }
-    #canvasFrame canvas {
-      width: 100%;
-      height: 100%;
-      border-radius: 30px;
-      display: block;
-      touch-action: none;
-      cursor: pointer;
-    }
-    #shockOverlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(circle, rgba(255,255,255,0.9), rgba(255,255,255,0) 70%);
-      animation: shock 0.3s ease-out;
-      display: none;
-      pointer-events: none;
-      z-index: 50;
-    }
-    @keyframes shock {
-      0% { opacity: 1; }
-      100% { opacity: 0; }
-    }
+    html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #111827; font-family: Arial, sans-serif; }
+    #canvasContainer { width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; background: #000; }
+    #canvasFrame { width: 414px; height: 896px; max-width: 100%; max-height: 100%; border: 16px solid #333; border-radius: 50px; box-shadow: 0 0 20px rgba(0,0,0,0.7); position: relative; overflow: hidden; background: #111827; }
+    #canvasFrame canvas { width: 100%; height: 100%; border-radius: 30px; display: block; touch-action: none; cursor: pointer; }
     #ui-panel {
       position: absolute;
       top: 1rem;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.6);
-      color: #fff;
+      background: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
       padding: 0.5rem 1rem;
-      border-radius: 0.5rem;
-      box-shadow: 0 0 10px rgba(255,255,255,0.2);
-      z-index: 10;
-      text-align: center;
-    }
-    #restart {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      display: none;
-      z-index: 100;
-      padding: 1rem 2rem;
-      font-size: 1.25rem;
-      font-weight: bold;
-      background-color: #e11d48;
-      color: #fff;
-      border: none;
-      border-radius: 0.5rem;
-      box-shadow: 0 0 15px rgba(0,0,0,0.3);
-      cursor: pointer;
-    }
-    #restart:hover {
-      background-color: #be123c;
-    }
-    /* Start overlay */
-    #startOverlay {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.8);
+      border-radius: 1rem;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
       display: flex;
-      flex-direction: column;
+      gap: 1rem;
+      font-weight: 600;
+      z-index: 10;
+      backdrop-filter: blur(10px);
+    }
+    #startOverlay, #notificationOverlay, #shockOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; z-index: 100; color: #fff; text-align: center; padding: 1rem; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+    #startOverlay h1 { font-size: 2rem; margin-bottom: 1rem; }
+    #startOverlay p { color: #ccc; margin-bottom: 2rem; max-width: 90%; }
+    #startOverlay button, #notificationOverlay button, #restartBtn { background: #10b981; color: #fff; border: none; border-radius: 0.5rem; padding: 1rem 2rem; font-size: 1.25rem; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-top: 1rem; }
+    #startOverlay button:hover, #notificationOverlay button:hover, #restartBtn:hover { background: #059669; }
+    #notificationOverlay p { font-size: 1.5rem; margin-bottom: 1rem; }
+    #groundLogo {
+      position: absolute;
+      left: 50%;
+      bottom: 4rem;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 60px;
+      background: repeating-linear-gradient(45deg, yellow 0, yellow 10px, black 10px, black 20px);
+      border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      z-index: 5;
+      display: flex;
       justify-content: center;
       align-items: center;
-      color: #fff;
-      z-index: 200;
-    }
-    #startOverlay h1 {
-      font-size: 2rem;
-      margin-bottom: 1rem;
-      text-align: center;
-    }
-    #startOverlay p {
-      color: #ccc;
-      text-align: center;
-      margin-bottom: 2rem;
-      max-width: 90%;
-    }
-    #startOverlay button {
-      background-color: #10b981;
-      color: #fff;
-      padding: 0.75rem 1.5rem;
-      font-size: 1rem;
-      border: none;
-      border-radius: 0.5rem;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
-      cursor: pointer;
-    }
-    #startOverlay button:hover {
-      background-color: #059669;
+      font-weight: bold;
+      color: white;
     }
   </style>
 </head>
 <body>
   <div id="startOverlay">
     <h1>Sähkömiehen erikoispeli</h1>
-    <p>Yhdistä samanväriset johdot vetämällä ne yhteen. Jos paria ei ole, yhdistä johto maahan. Väärä yhdistys aiheuttaa sähköiskun!</p>
-    <button onclick="hideStartOverlay()">Aloita peli</button>
+    <p>Yhdistä molemmin puolin olevista kolmesta kaapelista sama väri. Jos pari puuttuu, yhdistä viimeinen johto MAAan.</p>
+    <button id="startBtn">Aloita peli</button>
   </div>
-
   <div id="canvasContainer">
     <div id="canvasFrame">
-      <div id="shockOverlay"></div>
       <canvas id="gameCanvas"></canvas>
-      <div id="ui-panel">
-        <p>Pisteet: <span id="score">0</span> | Max: <span id="maxScore">0</span></p>
-        <p>Aikaa jäljellä: <span id="timer">30</span>s</p>
+      <div id="groundLogo">MAA</div>
+      <div id="shockOverlay"></div>
+      <div id="notificationOverlay">
+        <p id="notifyText">Sait 0 pistettä ajassa 00:00</p>
+        <button id="notifyRestartBtn">Aloita uusi peli</button>
       </div>
-      <button id="restart">Aloita uusi peli</button>
+      <div id="ui-panel">
+        <div style="display:flex;align-items:center;gap:0.5rem;"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='white'%3E%3Cpath d='M12 2L15 8H9l3-6zM6 20h12l-6-8-6 8z'/%3E%3C/svg%3E" alt="Piste"/>
+          <span id="score">0</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.5rem;"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='white'%3E%3Cpath d='M12 6a6 6 0 016 6H12V6zM6 12a6 6 0 0112 0h-6v6L6 12z'/%3E%3C/svg%3E" alt="Aika"/>
+          <span id="elapsed">00:00</span>
+        </div>
+      </div>
+        <div>Aika: <span id="elapsed">00:00</span></div>
+      </div>
+      <button id="restartBtn" style="display:none;">Aloita uusi peli</button>
     </div>
   </div>
-
   <script>
+    function hideStart() {
+      document.getElementById('startOverlay').style.display = 'none';
+      startGame();
+    }
     const frame = document.getElementById('canvasFrame');
     const canvas = document.getElementById('gameCanvas');
-    canvas.width = frame.clientWidth;
-    canvas.height = frame.clientHeight;
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
-    const maxScoreEl = document.getElementById('maxScore');
-    const timerEl = document.getElementById('timer');
-    const restartBtn = document.getElementById('restart');
+    const elapsedEl = document.getElementById('elapsed');
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const notifyOverlay = document.getElementById('notificationOverlay');
+    const notifyText = document.getElementById('notifyText');
+    const notifyRestartBtn = document.getElementById('notifyRestartBtn');
     const shockOverlay = document.getElementById('shockOverlay');
-    const startOverlay = document.getElementById('startOverlay');
+    const groundLogo = document.getElementById('groundLogo');
 
     const colors = ['red','blue','green','yellow','orange','purple','cyan','lime'];
-    let score=0, maxScore=parseInt(localStorage.getItem('maxScore')||'0'), timeLeft=30, timerInterval;
-    let wiresLeft=[], dragging=false, startWire=null, currentPoint=null;
-    const wireRadius=20;
+    let score = 0;
+    let maxScore = parseInt(localStorage.getItem('maxScore')||'0',10);
+    let elapsedTime = 0;
+    let elapsedInterval;
+    let wires = [];
+    let connections = [];
+    let dragging = false;
+    let startWire = null;
+    let currPos = {x:0,y:0};
+    const wireRadius = 20;
 
-    function hideStartOverlay(){startOverlay.style.display='none';startGame();}
-    function updateScore(add){score+=add;scoreEl.textContent=score;if(score>maxScore){maxScore=score;localStorage.setItem('maxScore',maxScore);}maxScoreEl.textContent=maxScore;}
-
-    function drawWire(x,y,color){
-      // Outer white circle
-      ctx.beginPath();ctx.fillStyle='white';ctx.arc(x,y,wireRadius,0,2*Math.PI);ctx.fill();
-      // Diagonal white band
-      ctx.save();ctx.translate(x,y);ctx.rotate(25*Math.PI/180);
-      ctx.fillStyle='rgba(255,255,255,0.5)';ctx.fillRect(-wireRadius, -5, wireRadius*2, 10);
-      ctx.restore();
-      // Inner colored circle
-      ctx.beginPath();ctx.fillStyle=color;ctx.arc(x,y,wireRadius*0.75,0,2*Math.PI);ctx.fill();
-      // Copper core with small shadow
-      ctx.save();ctx.shadowColor='rgba(0,0,0,0.4)';ctx.shadowBlur=4;
-      ctx.beginPath();ctx.fillStyle='#b87333';ctx.arc(x,y,wireRadius*0.2,0,2*Math.PI);ctx.fill();
-      ctx.restore();
+    function resizeCanvas() {
+      canvas.width = frame.clientWidth;
+      canvas.height = frame.clientHeight;
     }
-
-    function drawWires(){ctx.clearRect(0,0,canvas.width,canvas.height);
-      // Draw ground
-      ctx.fillStyle='gray';ctx.beginPath();ctx.arc(canvas.width/2,canvas.height-40,30,0,2*Math.PI);ctx.fill();
-      ctx.fillStyle='white';ctx.font='bold16px sans-serif';ctx.textAlign='center';ctx.fillText('MAA',canvas.width/2,canvas.height-34);
-      wiresLeft.forEach(w=>drawWire(w.x,w.y,w.color));
-      if(dragging&&startWire&&currentPoint){ctx.beginPath();ctx.moveTo(startWire.x,startWire.y);ctx.lineTo(currentPoint.x,currentPoint.y);ctx.strokeStyle='#b87333';ctx.lineWidth=3;ctx.stroke();}
+    function formatTime(sec) {
+      const m = String(Math.floor(sec/60)).padStart(2,'0');
+      const s = String(sec%60).padStart(2,'0');
+      return `${m}:${s}`;
     }
-
-    function generateWires(){wiresLeft=[];const left=shuffle(colors).slice(0,3),right=shuffle(colors).slice(0,3),sp=canvas.height/4;left.forEach((c,i)=>wiresLeft.push({x:50,y:sp*(i+1),color:c}));right.forEach((c,i)=>wiresLeft.push({x:canvas.width-50,y:sp*(i+1),color:c}));}
-    function getWireAt(x,y){return wiresLeft.find(w=>Math.hypot(w.x-x,w.y-y)<wireRadius);}    
-    function startGame(){ canvas.width=frame.clientWidth;canvas.height=frame.clientHeight;timeLeft=30;score=0;scoreEl.textContent=0;timerEl.textContent=30;generateWires();drawWires();restartBtn.style.display='none';shockOverlay.style.display='none';clearInterval(timerInterval);timerInterval=setInterval(()=>{timeLeft--;timerEl.textContent=timeLeft;if(timeLeft<=0){clearInterval(timerInterval);restartBtn.style.display='block';}},1000);}    
-    function handleDrag(pt){const endWire=getWireAt(pt.x,pt.y);if(startWire){if(endWire){if(endWire!==startWire){if(endWire.color===startWire.color){updateScore(10);generateWires();}else triggerShock();}}else if(Math.hypot(pt.x-canvas.width/2,pt.y-canvas.height+40)<30&&!shuffleMatch()){updateScore(10);triggerShock();}}drawWires();}
-    function shuffleMatch(){for(let i=0;i<wiresLeft.length;i++)for(let j=i+1;j<wiresLeft.length;j++)if(wiresLeft[i].color===wiresLeft[j].color)return true;return false;}
-    function triggerShock(){clearInterval(timerInterval);shockOverlay.style.display='block';score=0;scoreEl.textContent='0';setTimeout(()=>{shockOverlay.style.display='none';restartBtn.style.display='block';},400);}
-    function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-    function getPt(e){const r=canvas.getBoundingClientRect();const x=e.clientX||e.touches[0].clientX;const y=e.clientY||e.touches[0].clientY;return{x:x-r.left,y:y-r.top};}
-    // Events
-    canvas.addEventListener('touchstart',e=>{const pt=getPt(e);const w=getWireAt(pt.x,pt.y);if(w){startWire=w;dragging=true;} });
-    canvas.addEventListener('touchmove',e=>{if(!dragging)return;currentPoint=getPt(e);drawWires();});
-    canvas.addEventListener('touchend',e=>{if(!dragging)return;const pt=getPt(e);handleDrag(pt);dragging=false;startWire=null;});
-    canvas.addEventListener('mousedown',e=>{const pt=getPt(e);const w=getWireAt(pt.x,pt.y);if(w){startWire=w;dragging=true;}});
-    canvas.addEventListener('mousemove',e=>{if(!dragging)return;currentPoint=getPt(e);drawWires();});
-    canvas.addEventListener('mouseup',e=>{if(!dragging)return;const pt=getPt(e);handleDrag(pt);dragging=false;startWire=null;});
+    function startTimer() {
+      elapsedTime = 0; elapsedEl.textContent = formatTime(0);
+      clearInterval(elapsedInterval);
+      elapsedInterval = setInterval(()=>{
+        elapsedTime++; elapsedEl.textContent = formatTime(elapsedTime);
+      },1000);
+    }
+    function stopTimer() { clearInterval(elapsedInterval); }
+    function updateScore(add) { score+=add; scoreEl.textContent=score; if(score>maxScore){ maxScore=score; localStorage.setItem('maxScore',maxScore);} }
+    function drawWire(x,y,color) {
+      ctx.beginPath(); ctx.fillStyle='white'; ctx.arc(x,y,wireRadius,0,2*Math.PI); ctx.fill();
+      ctx.save(); ctx.translate(x,y); ctx.rotate(25*Math.PI/180);
+      ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.fillRect(-wireRadius,-5,wireRadius*2,10); ctx.restore();
+      ctx.beginPath(); ctx.fillStyle=color; ctx.arc(x,y,wireRadius*0.75,0,2*Math.PI); ctx.fill();
+      ctx.save(); ctx.shadowColor='rgba(0,0,0,0.4)'; ctx.shadowBlur=4;
+      ctx.beginPath(); ctx.fillStyle='#b87333'; ctx.arc(x,y,wireRadius*0.2,0,2*Math.PI); ctx.fill(); ctx.restore();
+    }
+    function draw() {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      connections.forEach(c=>{ ctx.beginPath(); ctx.moveTo(c.x1,c.y1); ctx.lineTo(c.x2,c.y2); ctx.strokeStyle='#b87333'; ctx.lineWidth=5; ctx.stroke(); });
+      wires.forEach(w=>drawWire(w.x,w.y,w.color));
+      if(dragging&&startWire){ ctx.beginPath(); ctx.moveTo(startWire.x,startWire.y); ctx.lineTo(currPos.x,currPos.y); ctx.strokeStyle='#b87333'; ctx.lineWidth=5; ctx.stroke(); }
+    }
+    function generateWires() { wires=[]; connections=[]; const left=shuffle(colors).slice(0,3); const right=shuffle(colors).slice(0,3); const sp=canvas.height/4; left.forEach((c,i)=>wires.push({x:50,y:sp*(i+1),color:c})); right.forEach((c,i)=>wires.push({x:canvas.width-50,y:sp*(i+1),color:c})); }
+    function startGame() { resizeCanvas(); score=0; scoreEl.textContent='0'; startTimer(); generateWires(); draw(); restartBtn.style.display='none'; notifyOverlay.style.display='none'; shockOverlay.style.display='none'; }
+    function getPt(e) { const r=canvas.getBoundingClientRect(); const x=(e.clientX||e.touches[0].clientX)-r.left; const y=(e.clientY||e.touches[0].clientY)-r.top; return {x,y}; }
+    function handleEnd(pt) { if(!startWire) return; const target=wires.find(w=>w!==startWire&&Math.hypot(w.x-pt.x,w.y-pt.y)<wireRadius); if(target&&target.color===startWire.color){ connections.push({x1:startWire.x,y1:startWire.y,x2:target.x,y2:target.y}); wires=wires.filter(w=>w!==startWire&&w!==target); updateScore(10); } else if(Math.hypot(pt.x-canvas.width/2,pt.y-(canvas.height-60))<30){ connections.push({x1:startWire.x,y1:startWire.y,x2:canvas.width/2,y2:canvas.height-60}); wires=wires.filter(w=>w!==startWire); updateScore(10); } else { stopTimer(); shockOverlay.style.display='flex'; setTimeout(()=>{ shockOverlay.style.display='none'; notifyText.textContent=`Hupsista! Ota huikka! Sait ${score} pistettä ajassa ${formatTime(elapsedTime)}`; notifyOverlay.style.display='flex'; },300); dragging=false; startWire=null; draw(); return; } if(wires.length===0){ setTimeout(()=>{ generateWires(); draw(); },500); } else { draw(); } dragging=false; startWire=null; }
+    function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+    startBtn.addEventListener('click',hideStart);
+    canvas.addEventListener('touchstart',e=>{ const pt=getPt(e); startWire=wires.find(w=>Math.hypot(w.x-pt.x,w.y-pt.y)<wireRadius); dragging=!!startWire; });
+    canvas.addEventListener('touchmove',e=>{ if(!dragging) return; currPos=getPt(e); draw(); });
+    canvas.addEventListener('touchend',e=>{ currPos=getPt(e); handleEnd(currPos); });
+    canvas.addEventListener('mousedown',e=>{ const pt=getPt(e); startWire=wires.find(w=>Math.hypot(w.x-pt.x,w.y-pt.y)<wireRadius); dragging=!!startWire; });
+    canvas.addEventListener('mousemove',e=>{ if(!dragging) return; currPos=getPt(e); draw(); });
+    canvas.addEventListener('mouseup',e=>{ currPos=getPt(e); handleEnd(currPos); });
     restartBtn.addEventListener('click',startGame);
-    window.addEventListener('resize',()=>{startGame();});
+    notifyRestartBtn.addEventListener('click',startGame);
+    window.addEventListener('resize',startGame);
+    startOverlay.style.display='flex';
   </script>
 </body>
 </html>
