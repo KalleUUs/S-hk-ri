@@ -2,25 +2,13 @@
 <html lang="fi">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sähkömiehen erikoispeli</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-      touch-action: none;
-      background-color: #111827;
-    }
     canvas {
       touch-action: none;
       cursor: pointer;
-      display: block;
-      width: 100vw;
-      height: 100vh;
     }
     #shockOverlay {
       position: absolute;
@@ -32,38 +20,22 @@
       animation: shock 0.3s ease-out;
       display: none;
       z-index: 50;
-      pointer-events: none;
     }
     @keyframes shock {
       0% { opacity: 1; }
       100% { opacity: 0; }
     }
-    #ui-panel {
-      position: absolute;
-      bottom: 1rem;
-      left: 50%;
-      transform: translateX(-50%);
-      text-align: center;
-      z-index: 10;
-    }
-    #restart {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      display: none;
-    }
   </style>
 </head>
-<body>
+<body class="relative bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-4">
   <div id="shockOverlay"></div>
-  <canvas id="gameCanvas"></canvas>
-  <div id="ui-panel" class="text-white text-sm">
-    <p class="mb-1">Pisteet: <span id="score">0</span> | Max: <span id="maxScore">0</span></p>
-    <p class="mb-2">Aikaa jäljellä: <span id="timer">30</span>s</p>
+  <h1 class="text-3xl font-bold mb-4">Sähkömiehen erikoispeli</h1>
+  <canvas id="gameCanvas" width="360" height="640" class="border border-white"></canvas>
+  <div class="mt-4 text-center">
+    <p>Pisteet: <span id="score">0</span> | Max: <span id="maxScore">0</span></p>
+    <p>Aikaa jäljellä: <span id="timer">30</span>s</p>
+    <button id="restart" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded mt-4 hidden">Aloita uusi peli</button>
   </div>
-  <button id="restart" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded shadow-lg text-lg">Aloita uusi peli</button>
-
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -85,7 +57,7 @@
 
     const wireRadius = 20;
     const topY = 100;
-    const bottomY = canvas.height - 100;
+    const bottomY = 540;
     const groundX = canvas.width / 2;
     const groundY = canvas.height - 30;
 
@@ -152,10 +124,10 @@
       }
 
       topColors.forEach((c, i) => {
-        wiresLeft.push({ x: 80 + i * 100, y: topY, color: c });
+        wiresLeft.push({ x: 80 + i * 100, y: topY, color: c, id: 'top-' + i });
       });
       bottomColors.forEach((c, i) => {
-        wiresLeft.push({ x: 80 + i * 100, y: bottomY, color: c });
+        wiresLeft.push({ x: 80 + i * 100, y: bottomY, color: c, id: 'bottom-' + i });
       });
     }
 
@@ -176,7 +148,11 @@
       timerEl.textContent = timeLeft;
       generateWires();
       drawWires();
-      restartBtn.style.display = 'none';
+      restartBtn.classList.add('hidden');
+      restartBtn.style.position = '';
+      restartBtn.style.top = '';
+      restartBtn.style.left = '';
+      restartBtn.style.transform = '';
       shockOverlay.style.display = 'none';
 
       clearInterval(timerInterval);
@@ -185,7 +161,7 @@
         timerEl.textContent = timeLeft;
         if (timeLeft <= 0) {
           clearInterval(timerInterval);
-          restartBtn.style.display = 'block';
+          restartBtn.classList.remove('hidden');
         }
       }, 1000);
     }
@@ -230,7 +206,11 @@
       scoreEl.textContent = score;
       setTimeout(() => {
         shockOverlay.style.display = 'none';
-        restartBtn.style.display = 'block';
+        restartBtn.classList.remove('hidden');
+        restartBtn.style.position = 'absolute';
+        restartBtn.style.top = '50%';
+        restartBtn.style.left = '50%';
+        restartBtn.style.transform = 'translate(-50%, -50%)';
       }, 400);
     }
 
@@ -250,21 +230,21 @@
       };
     }
 
-    canvas.addEventListener('touchstart', e => {
+    canvas.addEventListener('touchstart', (e) => {
       const touch = e.touches[0];
       startPoint = getCanvasCoordinates(touch);
       currentPoint = startPoint;
       dragging = true;
     });
 
-    canvas.addEventListener('touchmove', e => {
+    canvas.addEventListener('touchmove', (e) => {
       if (!dragging) return;
       const touch = e.touches[0];
       currentPoint = getCanvasCoordinates(touch);
       drawWires();
     });
 
-    canvas.addEventListener('touchend', e => {
+    canvas.addEventListener('touchend', (e) => {
       if (!dragging) return;
       const touch = e.changedTouches[0];
       const endPoint = getCanvasCoordinates(touch);
@@ -274,19 +254,19 @@
       currentPoint = null;
     });
 
-    canvas.addEventListener('mousedown', e => {
+    canvas.addEventListener('mousedown', (e) => {
       startPoint = getCanvasCoordinates(e);
       currentPoint = startPoint;
       dragging = true;
     });
 
-    canvas.addEventListener('mousemove', e => {
+    canvas.addEventListener('mousemove', (e) => {
       if (!dragging) return;
       currentPoint = getCanvasCoordinates(e);
       drawWires();
     });
 
-    canvas.addEventListener('mouseup', e => {
+    canvas.addEventListener('mouseup', (e) => {
       if (!dragging) return;
       const endPoint = getCanvasCoordinates(e);
       handleDrag(startPoint, endPoint);
@@ -295,7 +275,7 @@
       currentPoint = null;
     });
 
-    restartBtn.addEventListener('click', startGame);
+    restartBtn.addEventListener('click', () => startGame());
 
     startGame();
   </script>
