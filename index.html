@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sähkömiehen erikoispeli</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      touch-action: none;
+      background-color: #111827;
+    }
+    canvas {
+      touch-action: none;
+      cursor: pointer;
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+    #shockOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, rgba(255,255,255,0.9), rgba(255,255,255,0) 70%);
+      animation: shock 0.3s ease-out;
+      display: none;
+      z-index: 50;
+      pointer-events: none;
+    }
+    @keyframes shock {
+      0% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    #ui-panel {
+      position: absolute;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 10;
+    }
+    #restart {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="shockOverlay"></div>
+  <canvas id="gameCanvas"></canvas>
+  <div id="ui-panel" class="text-white text-sm">
+    <p class="mb-1">Pisteet: <span id="score">0</span> | Max: <span id="maxScore">0</span></p>
+    <p class="mb-2">Aikaa jäljellä: <span id="timer">30</span>s</p>
+  </div>
+  <button id="restart" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded shadow-lg text-lg">Aloita uusi peli</button>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const maxScoreEl = document.getElementById('maxScore');
+    const timerEl = document.getElementById('timer');
+    const restartBtn = document.getElementById('restart');
+    const shockOverlay = document.getElementById('shockOverlay');
+
+    const colors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'cyan', 'lime'];
+    let score = 0;
+    let maxScore = parseInt(localStorage.getItem('maxScore') || '0');
+    let timeLeft = 30;
+    let timerInterval;
+    let wiresLeft = [];
+    let dragging = false;
+    let startPoint = null;
+    let currentPoint = null;
+
+    const wireRadius = 20;
+    const topY = 100;
+    const bottomY = canvas.height - 100;
+    const groundX = canvas.width / 2;
+    const groundY = canvas.height - 30;
+
+    function updateScore(add) {
+      score += add;
+      scoreEl.textContent = score;
+      if (score > maxScore) {
+        maxScore = score;
+        localStorage.setItem('maxScore', maxScore);
+      }
+      maxScoreEl.textContent = maxScore;
+    }
+
+    function drawWire(x, y, color) {
+      ctx.beginPath();
+      ctx.fillStyle = 'white';
+      ctx.arc(x, y, wireRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.fillStyle = color;
+      ctx.arc(x, y, wireRadius * 0.75, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.fillStyle = '#b87333';
+      ctx.arc(x, y, wireRadius * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawWires() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'gray';
+      ctx.beginPath();
+      ctx.arc(groundX, groundY, 25, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('MAA', groundX, groundY + 5);
+
+      wiresLeft.forEach(w => {
+        drawWire(w.x, w.y, w.color);
+      });
+
+      if (dragging && startPoint && currentPoint) {
+        ctx.beginPath();
+        ctx.moveTo(startPoint.x, startPoint.y);
+        ctx.lineTo(currentPoint.x, currentPoint.y);
+        ctx.strokeStyle = '#b87333';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+    }
+
+    function generateWires() {
+      wiresLeft = [];
+      const topColors = shuffle(colors).slice(0, 3);
+      let bottomColors = shuffle(colors).slice(0, 3);
+
+      const noMatches = Math.random() < 0.5;
+      if (noMatches) {
+        bottomColors = bottomColors.map(() => getRandomColorNotIn(topColors));
+      }
+
+      topColors.forEach((c, i) => {
+        wiresLeft.push({ x: 80 + i * 100, y: topY, color: c });
+      });
+      bottomColors.forEach((c, i) => {
+        wiresLeft.push({ x: 80 + i * 100, y: bottomY, color: c });
+      });
+    }
+
+    function getWireAt(x, y) {
+      return wiresLeft.find(w => Math.hypot(w.x - x, w.y - y) < wireRadius);
+    }
+
+    function getRandomColorNotIn(excludeList) {
+      const available = colors.filter(c => !excludeList.includes(c));
+      return available[Math.floor(Math.random() * available.length)] || colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function startGame() {
+      timeLeft = 30;
+      score = 0;
+      scoreEl.textContent = score;
+      maxScoreEl.textContent = maxScore;
+      timerEl.textContent = timeLeft;
+      generateWires();
+      drawWires();
+      restartBtn.style.display = 'none';
+      shockOverlay.style.display = 'none';
+
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerEl.textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          restartBtn.style.display = 'block';
+        }
+      }, 1000);
+    }
+
+    function handleDrag(start, end) {
+      const startWire = getWireAt(start.x, start.y);
+      const endWire = getWireAt(end.x, end.y);
+
+      if (!startWire) return;
+
+      if (endWire) {
+        if (startWire === endWire) return;
+        if (startWire.color === endWire.color) {
+          updateScore(10);
+          generateWires();
+        } else {
+          triggerShockEffect();
+        }
+      } else if (Math.hypot(end.x - groundX, end.y - groundY) < 30) {
+        if (!hasMatchingPair()) {
+          updateScore(10);
+          triggerShockEffect();
+        }
+      }
+
+      drawWires();
+    }
+
+    function hasMatchingPair() {
+      for (let i = 0; i < wiresLeft.length; i++) {
+        for (let j = i + 1; j < wiresLeft.length; j++) {
+          if (wiresLeft[i].color === wiresLeft[j].color) return true;
+        }
+      }
+      return false;
+    }
+
+    function triggerShockEffect() {
+      clearInterval(timerInterval);
+      shockOverlay.style.display = 'block';
+      score = 0;
+      scoreEl.textContent = score;
+      setTimeout(() => {
+        shockOverlay.style.display = 'none';
+        restartBtn.style.display = 'block';
+      }, 400);
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function getCanvasCoordinates(e) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+
+    canvas.addEventListener('touchstart', e => {
+      const touch = e.touches[0];
+      startPoint = getCanvasCoordinates(touch);
+      currentPoint = startPoint;
+      dragging = true;
+    });
+
+    canvas.addEventListener('touchmove', e => {
+      if (!dragging) return;
+      const touch = e.touches[0];
+      currentPoint = getCanvasCoordinates(touch);
+      drawWires();
+    });
+
+    canvas.addEventListener('touchend', e => {
+      if (!dragging) return;
+      const touch = e.changedTouches[0];
+      const endPoint = getCanvasCoordinates(touch);
+      handleDrag(startPoint, endPoint);
+      dragging = false;
+      startPoint = null;
+      currentPoint = null;
+    });
+
+    canvas.addEventListener('mousedown', e => {
+      startPoint = getCanvasCoordinates(e);
+      currentPoint = startPoint;
+      dragging = true;
+    });
+
+    canvas.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      currentPoint = getCanvasCoordinates(e);
+      drawWires();
+    });
+
+    canvas.addEventListener('mouseup', e => {
+      if (!dragging) return;
+      const endPoint = getCanvasCoordinates(e);
+      handleDrag(startPoint, endPoint);
+      dragging = false;
+      startPoint = null;
+      currentPoint = null;
+    });
+
+    restartBtn.addEventListener('click', startGame);
+
+    startGame();
+  </script>
+</body>
+</html>
