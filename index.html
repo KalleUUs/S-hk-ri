@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Sähkömiehen erikoispeli</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     html, body {
       margin: 0;
@@ -12,6 +11,7 @@
       width: 100vw;
       height: 100vh;
       overflow: hidden;
+      touch-action: none;
       background-color: #111827;
       font-family: Arial, sans-serif;
     }
@@ -40,6 +40,9 @@
       width: 100%;
       height: 100%;
       border-radius: 30px;
+      display: block;
+      touch-action: none;
+      cursor: pointer;
     }
     #shockOverlay {
       position: absolute;
@@ -51,6 +54,7 @@
       animation: shock 0.3s ease-out;
       display: none;
       pointer-events: none;
+      z-index: 50;
     }
     @keyframes shock {
       0% { opacity: 1; }
@@ -58,7 +62,7 @@
     }
     #ui-panel {
       position: absolute;
-      top: 0.5rem;
+      top: 1rem;
       left: 50%;
       transform: translateX(-50%);
       background: rgba(0, 0, 0, 0.6);
@@ -148,7 +152,10 @@
   </div>
 
   <script>
+    const frame = document.getElementById('canvasFrame');
     const canvas = document.getElementById('gameCanvas');
+    canvas.width = frame.clientWidth;
+    canvas.height = frame.clientHeight;
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
     const maxScoreEl = document.getElementById('maxScore');
@@ -157,183 +164,54 @@
     const shockOverlay = document.getElementById('shockOverlay');
     const startOverlay = document.getElementById('startOverlay');
 
-    const colors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'cyan', 'lime'];
-    let score = 0;
-    let maxScore = parseInt(localStorage.getItem('maxScore') || '0');
-    let timeLeft = 30;
-    let timerInterval;
-    let wiresLeft = [];
-    let dragging = false;
-    let startPoint = null;
-    let currentPoint = null;
-    const wireRadius = 20;
+    const colors = ['red','blue','green','yellow','orange','purple','cyan','lime'];
+    let score=0, maxScore=parseInt(localStorage.getItem('maxScore')||'0'), timeLeft=30, timerInterval;
+    let wiresLeft=[], dragging=false, startWire=null, currentPoint=null;
+    const wireRadius=20;
 
-    function hideStartOverlay() {
-      startOverlay.style.display = 'none';
-      startGame();
+    function hideStartOverlay(){startOverlay.style.display='none';startGame();}
+    function updateScore(add){score+=add;scoreEl.textContent=score;if(score>maxScore){maxScore=score;localStorage.setItem('maxScore',maxScore);}maxScoreEl.textContent=maxScore;}
+
+    function drawWire(x,y,color){
+      // Outer white circle
+      ctx.beginPath();ctx.fillStyle='white';ctx.arc(x,y,wireRadius,0,2*Math.PI);ctx.fill();
+      // Diagonal white band
+      ctx.save();ctx.translate(x,y);ctx.rotate(25*Math.PI/180);
+      ctx.fillStyle='rgba(255,255,255,0.5)';ctx.fillRect(-wireRadius, -5, wireRadius*2, 10);
+      ctx.restore();
+      // Inner colored circle
+      ctx.beginPath();ctx.fillStyle=color;ctx.arc(x,y,wireRadius*0.75,0,2*Math.PI);ctx.fill();
+      // Copper core with small shadow
+      ctx.save();ctx.shadowColor='rgba(0,0,0,0.4)';ctx.shadowBlur=4;
+      ctx.beginPath();ctx.fillStyle='#b87333';ctx.arc(x,y,wireRadius*0.2,0,2*Math.PI);ctx.fill();
+      ctx.restore();
     }
 
-    function updateScore(add) {
-      score += add;
-      scoreEl.textContent = score;
-      if (score > maxScore) {
-        maxScore = score;
-        localStorage.setItem('maxScore', maxScore);
-      }
-      maxScoreEl.textContent = maxScore;
+    function drawWires(){ctx.clearRect(0,0,canvas.width,canvas.height);
+      // Draw ground
+      ctx.fillStyle='gray';ctx.beginPath();ctx.arc(canvas.width/2,canvas.height-40,30,0,2*Math.PI);ctx.fill();
+      ctx.fillStyle='white';ctx.font='bold16px sans-serif';ctx.textAlign='center';ctx.fillText('MAA',canvas.width/2,canvas.height-34);
+      wiresLeft.forEach(w=>drawWire(w.x,w.y,w.color));
+      if(dragging&&startWire&&currentPoint){ctx.beginPath();ctx.moveTo(startWire.x,startWire.y);ctx.lineTo(currentPoint.x,currentPoint.y);ctx.strokeStyle='#b87333';ctx.lineWidth=3;ctx.stroke();}
     }
 
-    function drawWire(x, y, color) {
-      ctx.beginPath();
-      ctx.fillStyle = 'white';
-      ctx.arc(x, y, wireRadius, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.fillStyle = color;
-      ctx.arc(x, y, wireRadius * 0.75, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.fillStyle = '#b87333';
-      ctx.arc(x, y, wireRadius * 0.2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    function drawWires() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'gray';
-      ctx.beginPath();
-      ctx.arc(canvas.width / 2, canvas.height - 40, 30, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 16px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('MAA', canvas.width / 2, canvas.height - 34);
-
-      wiresLeft.forEach(wire => {
-        drawWire(wire.x, wire.y, wire.color);
-      });
-
-      if (dragging && startPoint && currentPoint) {
-        ctx.beginPath();
-        ctx.moveTo(startPoint.x, startPoint.y);
-        ctx.lineTo(currentPoint.x, currentPoint.y);
-        ctx.strokeStyle = '#b87333';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-      }
-    }
-
-    function generateWires() {
-      wiresLeft = [];
-      const leftColors = shuffle(colors).slice(0, 3);
-      const rightColors = shuffle(colors).slice(0, 3);
-      const spacing = canvas.height / 4;
-
-      leftColors.forEach((c, i) => {
-        wiresLeft.push({ x: 50, y: spacing * (i + 1), color: c });
-      });
-      rightColors.forEach((c, i) => {
-        wiresLeft.push({ x: canvas.width - 50, y: spacing * (i + 1), color: c });
-      });
-    }
-
-    function getWireAt(x, y) {
-      return wiresLeft.find(wire => Math.hypot(wire.x - x, wire.y - y) < wireRadius);
-    }
-
-    function startGame() {
-      canvas.width = canvas.parentElement.clientWidth;
-      canvas.height = canvas.parentElement.clientHeight;
-      timeLeft = 30;
-      score = 0;
-      scoreEl.textContent = score;
-      maxScoreEl.textContent = maxScore;
-      timerEl.textContent = timeLeft;
-      generateWires();
-      drawWires();
-      restartBtn.style.display = 'none';
-      shockOverlay.style.display = 'none';
-
-      clearInterval(timerInterval);
-      timerInterval = setInterval(() => {
-        timeLeft--;
-        timerEl.textContent = timeLeft;
-        if (timeLeft <= 0) {
-          clearInterval(timerInterval);
-          restartBtn.style.display = 'block';
-        }
-      }, 1000);
-    }
-
-    function handleDrag(start, end) {
-      const startWire = getWireAt(start.x, start.y);
-      const endWire = getWireAt(end.x, end.y);
-      if (!startWire) return;
-      if (endWire) {
-        if (startWire !== endWire) {
-          if (startWire.color === endWire.color) {
-            updateScore(10);
-            generateWires();
-          } else {
-            triggerShockEffect();
-          }
-        }
-      } else if (Math.hypot(end.x - canvas.width / 2, end.y - canvas.height + 40) < 30) {
-        if (!hasMatchingPair()) {
-          updateScore(10);
-          triggerShockEffect();
-        }
-      }
-      drawWires();
-    }
-
-    function hasMatchingPair() {
-      for (let i = 0; i < wiresLeft.length; i++) {
-        for (let j = i + 1; j < wiresLeft.length; j++) {
-          if (wiresLeft[i].color === wiresLeft[j].color) return true;
-        }
-      }
-      return false;
-    }
-
-    function triggerShockEffect() {
-      clearInterval(timerInterval);
-      shockOverlay.style.display = 'block';
-      score = 0;
-      scoreEl.textContent = score;
-      setTimeout(() => {
-        shockOverlay.style.display = 'none';
-        restartBtn.style.display = 'block';
-      }, 400);
-    }
-
-    function shuffle(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-      }
-      return array;
-    }
-
-    function getCanvasCoordinates(event) {
-      const rect = canvas.getBoundingClientRect();
-      return {
-        x: (event.clientX || event.touches[0].clientX) - rect.left,
-        y: (event.clientY || event.touches[0].clientY) - rect.top
-      };
-    }
-
-    // Event listeners
-    canvas.addEventListener('touchstart', e => { dragging = true; const p = getCanvasCoordinates(e); startPoint = p; currentPoint = p; });
-    canvas.addEventListener('touchmove', e => { if (!dragging) return; currentPoint = getCanvasCoordinates(e); drawWires(); });
-    canvas.addEventListener('touchend', e => { if (!dragging) return; const p = getCanvasCoordinates(e); handleDrag(startPoint, p); dragging = false; });
-    canvas.addEventListener('mousedown', e => { dragging = true; const p = getCanvasCoordinates(e); startPoint = p; currentPoint = p; });
-    canvas.addEventListener('mousemove', e => { if (!dragging) return; currentPoint = getCanvasCoordinates(e); drawWires(); });
-    canvas.addEventListener('mouseup', e => { if (!dragging) return; const p = getCanvasCoordinates(e); handleDrag(startPoint, p); dragging = false; });
-    restartBtn.addEventListener('click', startGame);
-    window.addEventListener('resize', () => { startGame(); });
+    function generateWires(){wiresLeft=[];const left=shuffle(colors).slice(0,3),right=shuffle(colors).slice(0,3),sp=canvas.height/4;left.forEach((c,i)=>wiresLeft.push({x:50,y:sp*(i+1),color:c}));right.forEach((c,i)=>wiresLeft.push({x:canvas.width-50,y:sp*(i+1),color:c}));}
+    function getWireAt(x,y){return wiresLeft.find(w=>Math.hypot(w.x-x,w.y-y)<wireRadius);}    
+    function startGame(){ canvas.width=frame.clientWidth;canvas.height=frame.clientHeight;timeLeft=30;score=0;scoreEl.textContent=0;timerEl.textContent=30;generateWires();drawWires();restartBtn.style.display='none';shockOverlay.style.display='none';clearInterval(timerInterval);timerInterval=setInterval(()=>{timeLeft--;timerEl.textContent=timeLeft;if(timeLeft<=0){clearInterval(timerInterval);restartBtn.style.display='block';}},1000);}    
+    function handleDrag(pt){const endWire=getWireAt(pt.x,pt.y);if(startWire){if(endWire){if(endWire!==startWire){if(endWire.color===startWire.color){updateScore(10);generateWires();}else triggerShock();}}else if(Math.hypot(pt.x-canvas.width/2,pt.y-canvas.height+40)<30&&!shuffleMatch()){updateScore(10);triggerShock();}}drawWires();}
+    function shuffleMatch(){for(let i=0;i<wiresLeft.length;i++)for(let j=i+1;j<wiresLeft.length;j++)if(wiresLeft[i].color===wiresLeft[j].color)return true;return false;}
+    function triggerShock(){clearInterval(timerInterval);shockOverlay.style.display='block';score=0;scoreEl.textContent='0';setTimeout(()=>{shockOverlay.style.display='none';restartBtn.style.display='block';},400);}
+    function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+    function getPt(e){const r=canvas.getBoundingClientRect();const x=e.clientX||e.touches[0].clientX;const y=e.clientY||e.touches[0].clientY;return{x:x-r.left,y:y-r.top};}
+    // Events
+    canvas.addEventListener('touchstart',e=>{const pt=getPt(e);const w=getWireAt(pt.x,pt.y);if(w){startWire=w;dragging=true;} });
+    canvas.addEventListener('touchmove',e=>{if(!dragging)return;currentPoint=getPt(e);drawWires();});
+    canvas.addEventListener('touchend',e=>{if(!dragging)return;const pt=getPt(e);handleDrag(pt);dragging=false;startWire=null;});
+    canvas.addEventListener('mousedown',e=>{const pt=getPt(e);const w=getWireAt(pt.x,pt.y);if(w){startWire=w;dragging=true;}});
+    canvas.addEventListener('mousemove',e=>{if(!dragging)return;currentPoint=getPt(e);drawWires();});
+    canvas.addEventListener('mouseup',e=>{if(!dragging)return;const pt=getPt(e);handleDrag(pt);dragging=false;startWire=null;});
+    restartBtn.addEventListener('click',startGame);
+    window.addEventListener('resize',()=>{startGame();});
   </script>
 </body>
 </html>
